@@ -11,6 +11,7 @@ import java.util.List;
 public class Lox {
 
     private static final Interpreter interpreter = new Interpreter();
+    private static boolean runPrompt = false;
 
     public static void main(String[] args) throws IOException {
         if (args.length > 1) {
@@ -24,6 +25,7 @@ public class Lox {
     }
 
     public static void runFile(String path) throws IOException {
+        runPrompt = false;
         byte[] bytes = Files.readAllBytes(Paths.get(path));
         run(new String(bytes, Charset.defaultCharset()));
 
@@ -32,6 +34,7 @@ public class Lox {
     }
 
     public static void runPrompt() throws IOException {
+        runPrompt = true;
         InputStreamReader input = new InputStreamReader(System.in);
         BufferedReader reader = new BufferedReader(input);
 
@@ -48,8 +51,13 @@ public class Lox {
         Scanner scanner = new Scanner(source);
         List<Token> tokens = scanner.scanTokens();
 
-        List<Stmt> staetements = new Parser(tokens).parse();
+        List<Stmt> statements = new Parser(tokens).parse();
+        for (var stmt : statements) {
+            System.out.println(new AstPrinter().printStmt(stmt));
+        }
         if (ErrorReporter.hadError()) { return; }
-        // interpreter.interpret(expr);
+        interpreter.interpret(statements);
     }
+
+    public static boolean isRunPrompt() { return runPrompt; }
 }

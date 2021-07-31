@@ -3,11 +3,13 @@ package com.craftinginterpreters.lox;
 abstract class Expr {
 
     interface Visitor<R> {
-        R visitLiteral(Literal expr);
-        R visitUnary(Unary expr);
-        R visitBinary(Binary expr);
-        R visitTernary(Ternary expr);
-        R visitGrouping(Grouping expr);
+        R visitLiteralExpr(Literal expr);
+        R visitAssignExpr(Assign expr);
+        R visitUnaryExpr(Unary expr);
+        R visitBinaryExpr(Binary expr);
+        R visitTernaryExpr(Ternary expr);
+        R visitGroupingExpr(Grouping expr);
+        R visitVariableExpr(Variable expr);
     }
 
     abstract <R> R accept(Visitor<R> visitor);
@@ -21,7 +23,22 @@ abstract class Expr {
 
         @Override
         <R> R accept(Visitor<R> visitor) {
-            return visitor.visitLiteral(this);
+            return visitor.visitLiteralExpr(this);
+        }
+    }
+
+    static class Assign extends Expr {
+        final Token name;
+        final Expr value;
+
+        Assign(Token name, Expr value) {
+            this.name = name;
+            this.value = value;
+        }
+
+        @Override
+        <R> R accept(Visitor<R> visitor) {
+            return visitor.visitAssignExpr(this);
         }
     }
 
@@ -36,7 +53,7 @@ abstract class Expr {
 
         @Override
         <R> R accept(Visitor<R> visitor) {
-            return visitor.visitUnary(this);
+            return visitor.visitUnaryExpr(this);
         }
     }
 
@@ -53,7 +70,7 @@ abstract class Expr {
 
         @Override
         <R> R accept(Visitor<R> visitor) {
-            return visitor.visitBinary(this);
+            return visitor.visitBinaryExpr(this);
         }
     }
 
@@ -70,7 +87,7 @@ abstract class Expr {
 
         @Override
         <R> R accept(Visitor<R> visitor) {
-            return visitor.visitTernary(this);
+            return visitor.visitTernaryExpr(this);
         }
     }
 
@@ -83,7 +100,20 @@ abstract class Expr {
 
         @Override
         <R> R accept(Visitor<R> visitor) {
-            return visitor.visitGrouping(this);
+            return visitor.visitGroupingExpr(this);
+        }
+    }
+
+    static class Variable extends Expr {
+        final Token name;
+
+        Variable(Token name) {
+            this.name = name;
+        }
+
+        @Override
+        <R> R accept(Visitor<R> visitor) {
+            return visitor.visitVariableExpr(this);
         }
     }
 }

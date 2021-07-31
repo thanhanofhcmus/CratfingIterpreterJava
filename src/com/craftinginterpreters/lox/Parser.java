@@ -5,6 +5,27 @@ import java.util.List;
 
 import static com.craftinginterpreters.lox.TokenType.*;
 
+/*
+Parse <- declaration
+declaration     = varDeclaration | statement
+varDeclaration  = IDENTIFIER ("=" expression)? ";"
+statement       = printStatement | exprStatement
+printStatement  = "print" expression ";"
+exprStatement   = expression ";"
+expression      = assignment
+assignment      = ternary "=" VARIABLE
+ternary         = commaList "?" commaList ":" commaList
+commaList       = equality "," equality
+equality        = comparison ("==" | "!=") comparison
+comparison      = term ("<" | ">" | "<=" ">=") term
+term            = factor (("+" | "-") factor)*
+factor          = unary (("*" | "/") unary)*
+unary           = ("!" | "-") unary | primary
+primary         = "true" | "false" | "nil" | NUMBER | STRING | IDENTIFIER | group
+group           = "(" expression ")"
+VARIABLE        = named assignment
+ */
+
 public class Parser {
     private static class ParseError extends RuntimeException {}
 
@@ -19,8 +40,18 @@ public class Parser {
         try {
             List<Stmt> statements = new ArrayList<>();
             while (!isAtEnd()) {
-                statements.add(statement());
+                statements.add(declaration());
             }
+
+            // make last expression always print in prompt mode
+            if (Lox.isRunPrompt()) {
+                var lastStmt = statements.get(statements.size() - 1);
+                if (lastStmt instanceof Stmt.Expression) {
+                    statements.remove(statements.size() - 1);
+                    statements.add(new Stmt.Print(((Stmt.Expression) lastStmt).expr));
+                }
+            }
+
             return statements;
         } catch (ParseError error) {
             ErrorReporter.error(peek().line,"Parser", error.getMessage());
@@ -28,25 +59,65 @@ public class Parser {
         }
     }
 
+    private Stmt declaration() {
+        try {
+            if (match(VAR)) { return varDeclaration(); }
+            return statement();
+        } catch (ParseError error) {
+            synchronize();
+            return null;
+        }
+    }
+
+    private Stmt varDeclaration() {
+        Token name = consume(IDENTIFIER, "Expect a variable name");
+
+        Expr initializer = null;
+        if (match(EQUAL)) { initializer = expression(); }
+
+        consume(SEMICOLON, "Expect ';' after variable declaration");
+        return new Stmt.Variable(name, initializer);
+    }
+
     private Stmt statement() {
-        if (match(PRINT)) return printStatement();
+        if (match(PRINT)) { return printStatement(); }
         return exprStatement();
     }
 
     private Stmt printStatement() {
         Expr expr = expression();
-        consume(SEMICOLON, "Print expects ';' after value");
+        consume(SEMICOLON, "'print' statement expects ';' after expression");
         return new Stmt.Print(expr);
     }
 
     private Stmt exprStatement() {
         Expr expr = expression();
-        consume(SEMICOLON, "Expects ';' after expression to make expression statement");
+        consume(SEMICOLON, "Expects ';' after expression to make an expression statement");
         return new Stmt.Expression(expr);
     }
 
     private Expr expression() {
-        return ternary();
+        return assignment();
+    }
+
+    private Expr assignment() {
+        Expr expr = ternary();
+
+        if (match(EQUAL)) {
+            Token equals = previous();
+            Expr value = assignment();
+
+            if (expr instanceof Expr.Variable) {
+                Token name = ((Expr.Variable)expr).name;
+                return new Expr.Assign(name, value);
+            }
+
+            // Purposely not throw to not activate panic mode
+            //noinspection ThrowableNotThrown
+            error(equals, "Invalid assign target");
+        }
+
+        return expr;
     }
 
     private Expr ternary() {
@@ -54,7 +125,7 @@ public class Parser {
 
         if (match(QUESTION)) {
             Expr first = commaList();
-            consume(COLON, "[Parser] Must have colon in ternary operation");
+            consume(COLON, "Must have colon(':') in ternary expression");
             Expr second = commaList();
             expr = new Expr.Ternary(expr, first, second);
         }
@@ -139,6 +210,7 @@ public class Parser {
             case FALSE: return new Expr.Literal(false);
             case TRUE:  return new Expr.Literal(true);
             case NIL:   return new Expr.Literal(null);
+            case IDENTIFIER: return new Expr.Variable(previous());
             case NUMBER: case STRING: return new Expr.Literal(token.literal);
             case LEFT_PAREN: {
                 Expr expr = expression();
@@ -147,7 +219,7 @@ public class Parser {
             }
         }
 
-        // quick fix for going back
+        // quick and dirty fix for going back
         current--;
         throw error(token, "Expected an expression");
     }
@@ -189,7 +261,21 @@ public class Parser {
 
    private ParseError error(Token token, String message) {
        ErrorReporter.error(token, "Parser", message);
-        return new ParseError();
+       return new ParseError();
+   }
+
+   private void synchronize() {
+        advance();
+
+        while (!isAtEnd()) {
+            if (previous().type == SEMICOLON) return;
+            switch (peek().type) {
+                case CLASS: case FUN: case VAR: case FOR:
+                case IF: case WHILE: case PRINT: case RETURN:
+                    return;
+            }
+            advance();
+        }
    }
 
    private Token consume(TokenType expected, String errorMessage) {

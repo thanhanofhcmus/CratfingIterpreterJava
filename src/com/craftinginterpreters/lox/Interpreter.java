@@ -1,28 +1,60 @@
 package com.craftinginterpreters.lox;
 
+import java.util.List;
+
 public class Interpreter implements Expr.Visitor<Object>,
                                     Stmt.Visitor<Void> {
     private Token throwToken;
+    private final Environment environment = new Environment();
 
-    public void interpret(Expr expr) {
-        if (expr == null) {
-            return;
-        }
+    public void interpret(List<Stmt> statements) {
         try {
-            Object value = evaluate(expr);
-            System.out.println(stringify(value));
+            for (Stmt statement : statements) {
+                execute(statement);
+            }
         } catch (RuntimeError error) {
             ErrorReporter.error(error);
         }
     }
 
+    private void execute(Stmt statement) {
+        statement.accept(this);
+    }
+
     @Override
-    public Object visitLiteral(Expr.Literal expr) {
+    public Void visitExprStmt(Stmt.Expression stmt) {
+        evaluate(stmt.expr);
+        return null;
+    }
+
+    @Override
+    public Void visitPrintStmt(Stmt.Print stmt) {
+        Object value = evaluate(stmt.expr);
+        System.out.println(stringify(value));
+        return null;
+    }
+
+    @Override
+    public Void visitVariableStmt(Stmt.Variable stmt) {
+        Object value = evaluate(stmt.initializer);
+        environment.define(stmt.name.lexeme, value);
+        return null;
+    }
+
+    @Override
+    public Object visitLiteralExpr(Expr.Literal expr) {
         return expr.value;
     }
 
     @Override
-    public Object visitUnary(Expr.Unary expr) {
+    public Object visitAssignExpr(Expr.Assign expr) {
+        Object value = evaluate(expr.value);
+        environment.assign(expr.name, value);
+        return value;
+    }
+
+    @Override
+    public Object visitUnaryExpr(Expr.Unary expr) {
         Object right = evaluate(expr.expr);
         setThrowToken(expr.operator);
 
@@ -34,7 +66,7 @@ public class Interpreter implements Expr.Visitor<Object>,
     }
 
     @Override
-    public Object visitBinary(Expr.Binary expr) {
+    public Object visitBinaryExpr(Expr.Binary expr) {
         Object left = evaluate(expr.left);
         Object right = evaluate(expr.right);
         setThrowToken(expr.operator);
@@ -55,7 +87,7 @@ public class Interpreter implements Expr.Visitor<Object>,
         };
     }
 
-    public Object visitTernary(Expr.Ternary expr) {
+    public Object visitTernaryExpr(Expr.Ternary expr) {
         boolean condition = isTruthy(evaluate(expr.condition));
         Object first = evaluate(expr.first);
         Object second = evaluate(expr.second);
@@ -65,11 +97,17 @@ public class Interpreter implements Expr.Visitor<Object>,
     }
 
     @Override
-    public  Object visitGrouping(Expr.Grouping expr) {
+    public Object visitGroupingExpr(Expr.Grouping expr) {
         return evaluate(expr.expr);
     }
 
+    @Override
+    public Object visitVariableExpr(Expr.Variable expr) {
+        return environment.get(expr.name);
+    }
+
     private Object evaluate(Expr expr) {
+        if (expr == null) { return null; }
         return expr.accept(this);
     }
 
@@ -92,7 +130,7 @@ public class Interpreter implements Expr.Visitor<Object>,
         } else if (right instanceof Double) {
             return (double)left + (double)right;
         } else {
-            throw new RuntimeError(throwToken, "[Interpreter] Cannot do plus on lhs number and rhs string");
+            throw error("Cannot do plus on lhs number and rhs string");
         }
     }
 
@@ -106,7 +144,7 @@ public class Interpreter implements Expr.Visitor<Object>,
                 return text.repeat(rep);
             }
         } else {
-            throw new RuntimeError(throwToken, "[Interpreter] Rhs of multiply must be a number");
+            throw error("Rhs of multiply must be a number");
         }
     }
 
@@ -115,14 +153,14 @@ public class Interpreter implements Expr.Visitor<Object>,
         double b = number(right);
 
         if (b == 0) {
-            throw new RuntimeError(throwToken, "[Interpreter] Cannot divide by zero");
+            throw error("Cannot divide by zero");
         }
         return a / b;
     }
 
     private double number(Object obj) {
         if (obj instanceof Double) return (double)obj;
-        throw new RuntimeError(throwToken, "[Interpreter] Operand must be a number");
+        throw error("Operand must be a number");
     }
 
     private String stringify(Object obj) {
@@ -137,7 +175,11 @@ public class Interpreter implements Expr.Visitor<Object>,
         return obj.toString();
     }
 
-    public void setThrowToken(Token throwToken) {
+    private void setThrowToken(Token throwToken) {
         this.throwToken = throwToken;
+    }
+
+    private RuntimeError error(String message) {
+        return new RuntimeError(throwToken, "Interpreter", message);
     }
 }

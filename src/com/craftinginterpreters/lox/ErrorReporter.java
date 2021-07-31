@@ -47,7 +47,7 @@ public class ErrorReporter {
     }
 
     public static void error(RuntimeError error) {
-        runtimeErrorMessage = error.getMessage();
+        runtimeErrorMessage = "[Line " + error.token.line + "] [" + error.actor + "] " + ": " + error.getMessage();
     }
 
     private static void queue(int line, String actor, String where, String message) {

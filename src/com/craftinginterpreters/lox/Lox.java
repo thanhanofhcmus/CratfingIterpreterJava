@@ -41,8 +41,8 @@ public class Lox {
         for (;;) {
             ErrorReporter.printPrompt();
             String line = reader.readLine();
-            if (line == null) break;
-            if (line.isEmpty()) continue;
+            if (null == line) { break; }
+            if (line.isEmpty()) { continue; }
             run(line);
         }
     }

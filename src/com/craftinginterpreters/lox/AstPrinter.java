@@ -2,6 +2,10 @@ package com.craftinginterpreters.lox;
 
 public class AstPrinter implements Expr.Visitor<String>,
                                    Stmt.Visitor<String> {
+
+    private int indentLevel = 0;
+    private final int numOfSpaces = 2;
+
     String printExpr(Expr expr) {
         return expr.accept(this);
     }
@@ -12,9 +16,8 @@ public class AstPrinter implements Expr.Visitor<String>,
 
     @Override
     public String visitLiteralExpr(Expr.Literal expr) {
-        if (expr.value == null)
-            return "Null";
-        return expr.value.toString();
+        if (null == expr.value) { return "Null"; }
+        else                    { return expr.value.toString(); }
     }
 
     @Override
@@ -62,13 +65,35 @@ public class AstPrinter implements Expr.Visitor<String>,
         return parenthesize("DecVar " + stmt.name.lexeme, stmt.initializer);
     }
 
+    @Override
+    public String visitBlockStmt(Stmt.Block stmt) {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append(" ".repeat(indentLevel * numOfSpaces));
+        indentLevel += 1;
+        builder.append("Block {");
+        for (Stmt statement : stmt.stmts) {
+            if (null != statement) {
+                builder.append('\n');
+                builder.append(new AstPrinter().printStmt(statement));
+            }
+        }
+        builder.append("\n}");
+        indentLevel -= 1;
+
+        return builder.toString();
+    }
+
     private String parenthesize(String name, Expr... exprs) {
         StringBuilder builder = new StringBuilder();
 
+        builder.append(" ".repeat(indentLevel * numOfSpaces));
         builder.append('(').append(name);
         for (Expr expr : exprs) {
-            builder.append(' ');
-            builder.append(expr.accept(this));
+            if (null != expr) {
+                builder.append(' ');
+                builder.append(expr.accept(this));
+            }
         }
         builder.append(")");
 

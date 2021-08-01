@@ -1,11 +1,14 @@
 package com.craftinginterpreters.lox;
 
+import java.util.List;
+
 abstract class Stmt {
 
     interface Visitor<R> {
         R visitExprStmt(Expression stmt);
         R visitPrintStmt(Print stmt);
         R visitVariableStmt(Variable stmt);
+        R visitBlockStmt(Block stmt);
     }
 
     abstract <R> R accept(Visitor<R> visitor);
@@ -48,6 +51,19 @@ abstract class Stmt {
         @Override
        <R> R accept(Visitor<R> visitor) {
             return visitor.visitVariableStmt(this);
+        }
+   }
+
+   static class Block extends Stmt {
+        final List<Stmt> stmts;
+
+        Block(List<Stmt> stmts) {
+            this.stmts = stmts;
+        }
+
+        @Override
+       <R> R accept(Visitor<R> visitor) {
+            return visitor.visitBlockStmt(this);
         }
    }
 }

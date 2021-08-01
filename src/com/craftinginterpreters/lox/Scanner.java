@@ -34,9 +34,7 @@ public class Scanner {
         keywords.put("while",   WHILE);
     }
 
-    Scanner(String source) {
-        this.source = source;
-    }
+    Scanner(String source) { this.source = source; }
 
     List<Token> scanTokens() {
         while (!isAtEnd()) {
@@ -45,8 +43,11 @@ public class Scanner {
         }
 
         // add semicolon for last statement while running prompt
-        if (Lox.isRunPrompt() && tokens.get(tokens.size() - 1).type != SEMICOLON) {
-            tokens.add(new Token(SEMICOLON, ";", null, line));
+        if (Lox.isRunPrompt()) {
+            TokenType tt = tokens.get(tokens.size() - 1).type;
+            if (tt != RIGHT_BRACE && tt != SEMICOLON) {
+                tokens.add(new Token(SEMICOLON, ";", null, line));
+            }
         }
         tokens.add(new Token(EOF, "", null, line));
         return tokens;
@@ -80,26 +81,24 @@ public class Scanner {
             case '=' -> addToken(match('=') ? EQUAL_EQUAL : EQUAL);
             case '<' -> addToken(match('=') ? LESS_EQUAL : LESS);
             case '>' -> addToken(match('=') ? GREATER_EQUAL : GREATER);
+            case '"' -> string();
             case '\n' -> line++;
             case ' ', '\t', '\r' -> {}
             case '/' -> {
-                if (match('/')){
-                    while (!isAtEnd() && peek() != '\n')
+                if (match('/')) {
+                    while (!isAtEnd() && peek() != '\n') {
                         advance();
+                    }
                 } else if (match('*')) {
                     isInComment = true;
                 } else {
                     addToken(SLASH);
                 }
             }
-            case '"' -> string();
             default -> {
-                if (isDigit(c)) {
-                    number();
-                } else if (isAlpha(c)) {
-                    identifier();
-                } else {
-                    ErrorReporter.error(line, "Scanner", "Unexpected character: " + c);
+                if      (isDigit(c)) { number(); }
+                else if (isAlpha(c)) { identifier(); }
+                else                 { error("Unexpected character: " + c);
                 }
             }
         }
@@ -136,11 +135,15 @@ public class Scanner {
     private boolean isAlphaNumeric(char c) { return isDigit(c) || isAlpha(c); }
 
     private void number() {
-        while (isDigit(peek())) { advance(); }
+        while (isDigit(peek())) {
+            advance();
+        }
 
         if (peek() == '.' && isDigit(peekNext())) {
             advance();
-            while (isDigit(peek())) { advance(); }
+            while (isDigit(peek())) {
+                advance();
+            }
         }
 
         double literal = Double.parseDouble(source.substring(start, current));
@@ -153,9 +156,7 @@ public class Scanner {
             advance();
         }
 
-        if (isAtEnd()) {
-            ErrorReporter.error(line, "Scanner", "Unterminated string");
-        }
+        if (isAtEnd()) { error("Unterminated string"); }
 
         advance();
 
@@ -164,7 +165,9 @@ public class Scanner {
     }
 
     private void identifier() {
-        while (isAlphaNumeric(peek())) { advance(); }
+        while (isAlphaNumeric(peek())) {
+            advance();
+        }
 
         String text = source.substring(start, current);
         TokenType type = keywords.get(text);
@@ -179,5 +182,9 @@ public class Scanner {
     private void addToken(TokenType type, Object literal) {
         String text = source.substring(start, current);
         tokens.add(new Token(type, text, literal, line));
+    }
+
+    private void error(String message) {
+        ErrorReporter.error(line, "Scanner", message);
     }
 }

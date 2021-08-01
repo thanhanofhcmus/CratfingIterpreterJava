@@ -5,7 +5,7 @@ import java.util.List;
 public class Interpreter implements Expr.Visitor<Object>,
                                     Stmt.Visitor<Void> {
     private Token throwToken;
-    private final Environment environment = new Environment();
+    private Environment environment = new Environment();
 
     public void interpret(List<Stmt> statements) {
         try {
@@ -37,7 +37,13 @@ public class Interpreter implements Expr.Visitor<Object>,
     @Override
     public Void visitVariableStmt(Stmt.Variable stmt) {
         Object value = evaluate(stmt.initializer);
-        environment.define(stmt.name.lexeme, value);
+        environment.define(stmt.name, value);
+        return null;
+    }
+
+    @Override
+    public Void visitBlockStmt(Stmt.Block stmt) {
+        executeBlock(stmt.stmts, new Environment(this.environment));
         return null;
     }
 
@@ -61,7 +67,7 @@ public class Interpreter implements Expr.Visitor<Object>,
         return switch (expr.operator.type) {
             case MINUS -> -number(right);
             case BANG  -> !isTruthy(right);
-            default    -> /* Unreachable */ null;
+            default -> throw error("Unknown Unary Operator");
         };
     }
 
@@ -83,7 +89,7 @@ public class Interpreter implements Expr.Visitor<Object>,
             case LESS_EQUAL    -> number(left) <= number(right);
             case BANG_EQUAL    -> !isEqual(left, right);
             case EQUAL_EQUAL   -> isEqual(left, right);
-            default    -> /* Unreachable */ null;
+            default -> throw error("Unknown Binary Operator");
         };
     }
 
@@ -107,31 +113,27 @@ public class Interpreter implements Expr.Visitor<Object>,
     }
 
     private Object evaluate(Expr expr) {
-        if (expr == null) { return null; }
-        return expr.accept(this);
+        if   (null == expr) { return null; }
+        else                { return expr.accept(this); }
     }
 
     private boolean isTruthy(Object obj) {
-        if (obj == null) return false;
-        if (obj instanceof Boolean) return (boolean)obj;
-        if (obj instanceof Double) return ((double)obj) == 0.0;
-        return true;
+        if      (null == obj)            { return false; }
+        else if (obj instanceof Boolean) { return (boolean)obj; }
+        else if (obj instanceof Double)  { return ((double)obj) == 0.0; }
+        else                             { return true; }
     }
 
     private boolean isEqual(Object left, Object right) {
-        if (left == null && right == null) return true;
-        else if (left == null) return false;
-        return left.equals(right);
+        if      (null == left && null == right) { return true; }
+        else if (null == left)                  { return false; }
+        else                                    { return left.equals(right); }
     }
 
     private Object evaluatePlus(Object left, Object right) {
-        if (left instanceof String) {
-            return left + stringify(right);
-        } else if (right instanceof Double) {
-            return (double)left + (double)right;
-        } else {
-            throw error("Cannot do plus on lhs number and rhs string");
-        }
+        if      (left instanceof String)  { return left + stringify(right); }
+        else if (right instanceof Double) { return (double)left + (double)right; }
+        else { throw error("Cannot do plus on lhs number and rhs string"); }
     }
 
     private Object evaluateMultiply(Object left, Object right) {
@@ -152,15 +154,13 @@ public class Interpreter implements Expr.Visitor<Object>,
         double a = number(left);
         double b = number(right);
 
-        if (b == 0) {
-            throw error("Cannot divide by zero");
-        }
+        if (b == 0) { throw error("Cannot divide by zero"); }
         return a / b;
     }
 
     private double number(Object obj) {
-        if (obj instanceof Double) return (double)obj;
-        throw error("Operand must be a number");
+        if   (obj instanceof Double) { return (double)obj; }
+        else                         { throw error("Operand must be a number"); }
     }
 
     private String stringify(Object obj) {
@@ -173,6 +173,18 @@ public class Interpreter implements Expr.Visitor<Object>,
             return text;
         }
         return obj.toString();
+    }
+
+    private void executeBlock(List<Stmt> stmts, Environment environment) {
+        Environment previous = this.environment;
+        try {
+            this.environment = environment;
+            for (Stmt stmt : stmts) {
+                execute(stmt);
+            }
+        } finally {
+            this.environment = previous;
+        }
     }
 
     private void setThrowToken(Token throwToken) {

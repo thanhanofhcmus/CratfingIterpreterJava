@@ -9,9 +9,10 @@ import static com.craftinginterpreters.lox.TokenType.*;
 Parse <- declaration
 declaration     = varDeclaration | statement
 varDeclaration  = IDENTIFIER ("=" expression)? ";"
-statement       = printStatement | exprStatement
+statement       = printStatement | exprStatement | block
 printStatement  = "print" expression ";"
 exprStatement   = expression ";"
+block           = "{" declaration* "}"
 expression      = assignment
 assignment      = ternary "=" VARIABLE
 ternary         = commaList "?" commaList ":" commaList
@@ -24,7 +25,7 @@ unary           = ("!" | "-") unary | primary
 primary         = "true" | "false" | "nil" | NUMBER | STRING | IDENTIFIER | group
 group           = "(" expression ")"
 VARIABLE        = named assignment
- */
+*/
 
 public class Parser {
     private static class ParseError extends RuntimeException {}
@@ -80,8 +81,9 @@ public class Parser {
     }
 
     private Stmt statement() {
-        if (match(PRINT)) { return printStatement(); }
-        return exprStatement();
+        if      (match(PRINT))      { return printStatement(); }
+        else if (match(LEFT_BRACE)) { return blockStatement(); }
+        else                        { return exprStatement() ;}
     }
 
     private Stmt printStatement() {
@@ -94,6 +96,16 @@ public class Parser {
         Expr expr = expression();
         consume(SEMICOLON, "Expects ';' after expression to make an expression statement");
         return new Stmt.Expression(expr);
+    }
+
+    private Stmt blockStatement() {
+        List<Stmt> stmts = new ArrayList<>();
+        while (!check(RIGHT_BRACE) && !isAtEnd()) {
+            stmts.add(declaration());
+        }
+
+        consume(RIGHT_BRACE, "Need '}' to close a block");
+        return new Stmt.Block(stmts);
     }
 
     private Expr expression() {

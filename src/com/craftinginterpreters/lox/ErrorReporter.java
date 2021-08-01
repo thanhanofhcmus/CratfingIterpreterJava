@@ -21,8 +21,9 @@ public class ErrorReporter {
     }
 
     public static void report() {
-        if (hadRuntimeError())
+        if (hadRuntimeError()) {
             System.out.println(runtimeErrorMessage);
+        }
         while (hadError()) {
             System.out.println(errorQueue.remove());
         }
@@ -47,10 +48,11 @@ public class ErrorReporter {
     }
 
     public static void error(RuntimeError error) {
-        runtimeErrorMessage = "[Line " + error.token.line + "] [" + error.actor + "] " + ": " + error.getMessage();
+        runtimeErrorMessage = String.format("[Line %s] [%s]: %s",
+                error.token.line, error.actor, error.getMessage());
     }
 
     private static void queue(int line, String actor, String where, String message) {
-        errorQueue.add("[Line " + line + "] [" + actor + "] " + where + ": " + message);
+        errorQueue.add(String.format("[Line %s] [%s] %s: %s", line, actor, where, message));
     }
 }

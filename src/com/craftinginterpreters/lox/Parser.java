@@ -10,13 +10,19 @@ Parse <- declaration
 declaration     = varDeclaration | statement
 varDeclaration  = IDENTIFIER ("=" expression)? ";"
 statement       = printStatement | exprStatement | block
+                | ifStatement | whileStatement | forStatement
+                | breakStatement | continueStatement
 printStatement  = "print" expression ";"
 exprStatement   = expression ";"
 block           = "{" declaration* "}"
+ifStatement     = "if" (expression | group) block ("else" block)?
+whileStatement  = "while" (expression | group) block
+forStatement    = "for" "(" (varDeclaration | exprStatement)? ";" expression? ";" expression? ")" block
 expression      = assignment
 assignment      = ternary "=" VARIABLE
 ternary         = commaList "?" commaList ":" commaList
-commaList       = equality "," equality
+commaList       = logical ("or" | "and" logical)*
+logical         = equality "," equality
 equality        = comparison ("==" | "!=") comparison
 comparison      = term ("<" | ">" | "<=" ">=") term
 term            = factor (("+" | "-") factor)*
@@ -28,7 +34,7 @@ VARIABLE        = named assignment
 */
 
 public class Parser {
-    private static class ParseError extends RuntimeException {}
+    private static class ParseException extends RuntimeException {}
 
     private final List<Token> tokens;
     private int current = 0;
@@ -54,7 +60,7 @@ public class Parser {
             }
 
             return statements;
-        } catch (ParseError error) {
+        } catch (ParseException error) {
             ErrorReporter.error(peek().line,"Parser", error.getMessage());
             return null;
         }
@@ -63,8 +69,8 @@ public class Parser {
     private Stmt declaration() {
         try {
             if (match(VAR)) { return varDeclaration(); }
-            return statement();
-        } catch (ParseError error) {
+            else            { return statement(); }
+        } catch (ParseException error) {
             synchronize();
             return null;
         }
@@ -81,9 +87,14 @@ public class Parser {
     }
 
     private Stmt statement() {
-        if      (match(PRINT))      { return printStatement(); }
-        else if (match(LEFT_BRACE)) { return blockStatement(); }
-        else                        { return exprStatement() ;}
+        if      (match(PRINT))      { return printStatement();    }
+        else if (match(LEFT_BRACE)) { return blockStatement();    }
+        else if (match(IF))         { return ifStatement();       }
+        else if (match(WHILE))      { return whileStatement();    }
+        else if (match(FOR))        { return forStatement();      }
+        else if (match(BREAK))      { return breakStatement();    }
+        else if (match(CONTINUE))   { return continueStatement(); }
+        else                        { return exprStatement();     }
     }
 
     private Stmt printStatement() {
@@ -106,6 +117,54 @@ public class Parser {
 
         consume(RIGHT_BRACE, "Need '}' to close a block");
         return new Stmt.Block(stmts);
+    }
+
+    private Stmt ifStatement() {
+        Expr condition = match(LEFT_PAREN) ? bracedExpression() : expression();
+        consume(LEFT_BRACE, "If statement must have a block {}");
+        Stmt ifBlock = blockStatement();
+        Stmt elseBlock = null;
+        if (match(ELSE)) {
+            consume(LEFT_BRACE, "Else statement must have a block {}");
+            elseBlock = blockStatement();
+        }
+        return new Stmt.If(condition, ifBlock, elseBlock);
+    }
+
+    private Stmt whileStatement() {
+        Expr condition = match(LEFT_PAREN) ? bracedExpression() : expression();
+        consume(LEFT_BRACE, "While statement must have a block {}");
+        Stmt block = blockStatement();
+        return new Stmt.While(condition, block);
+    }
+
+    private Stmt forStatement() {
+        consume(LEFT_PAREN, "For loop must have ()");
+
+        Stmt init = null;
+        if (check(SEMICOLON)) { advance(); }
+        else                  { init = declaration(); }
+
+        Expr condition = check(SEMICOLON) ? new Expr.Literal(true) : expression();
+        consume(SEMICOLON, "Expected ; after loop condition");
+
+        Expr increase = check(RIGHT_PAREN) ? null : expression();
+
+        consume(RIGHT_PAREN, "Expect ')' at the end of for loop declaration");
+        consume(LEFT_BRACE, "For statement must have a block {}");
+        Stmt block = blockStatement();
+
+        return new Stmt.For(init, condition, increase, block);
+    }
+
+    private Stmt breakStatement() {
+        consume(SEMICOLON, "Expect ; after break");
+        return new Stmt.Break();
+    }
+
+    private Stmt continueStatement() {
+        consume(SEMICOLON, "Expect ; after continue");
+        return new Stmt.Continue();
     }
 
     private Expr expression() {
@@ -146,12 +205,24 @@ public class Parser {
     }
 
     private Expr commaList() {
-        Expr expr = equality();
+        Expr expr = logical();
 
         while (match(COMMA)) {
             Token operator = previous();
-            Expr right = equality();
+            Expr right = logical();
             expr = new Expr.Binary(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    private Expr logical() {
+        Expr expr = equality();
+
+        while (match(AND, OR)) {
+            Token operator = previous();
+            Expr right = equality();
+            expr = new Expr.Logical(expr, operator, right);
         }
 
         return expr;
@@ -224,16 +295,18 @@ public class Parser {
             case NIL:   return new Expr.Literal(null);
             case IDENTIFIER: return new Expr.Variable(previous());
             case NUMBER: case STRING: return new Expr.Literal(token.literal);
-            case LEFT_PAREN: {
-                Expr expr = expression();
-                consume(RIGHT_PAREN, "Expect ')' after expression");
-                return expr;
-            }
+            case LEFT_PAREN: return bracedExpression();
         }
 
         // quick and dirty fix for going back
         current--;
         throw error(token, "Expected an expression");
+    }
+
+    private Expr bracedExpression() {
+        Expr expr = expression();
+        consume(RIGHT_PAREN, "Expect ')' after expression");
+        return expr;
     }
 
     private boolean isAtEnd() {
@@ -271,9 +344,9 @@ public class Parser {
         return false;
    }
 
-   private ParseError error(Token token, String message) {
+   private ParseException error(Token token, String message) {
        ErrorReporter.error(token, "Parser", message);
-       return new ParseError();
+       return new ParseException();
    }
 
    private void synchronize() {

@@ -51,6 +51,11 @@ public class AstPrinter implements Expr.Visitor<String>,
     }
 
     @Override
+    public String visitLogicalExpr(Expr.Logical expr) {
+        return "";
+    }
+
+    @Override
     public String visitExprStmt(Stmt.Expression stmt) {
         return parenthesize("ExprStmt", stmt.expr);
     }
@@ -82,6 +87,43 @@ public class AstPrinter implements Expr.Visitor<String>,
         indentLevel -= 1;
 
         return builder.toString();
+    }
+
+    @Override
+    public String visitIfStmt(Stmt.If stmt) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("( IfBlock (\n");
+        builder.append(parenthesize("Cond", stmt.condition));
+
+        builder.append("\nIfClause ");
+        builder.append(new AstPrinter().printStmt(stmt.ifBlock));
+        if (null != stmt.elseBlock) {
+            builder.append("\nElseClause");
+            builder.append(new AstPrinter().printStmt(stmt.elseBlock));
+        }
+        builder.append(")");
+
+        return builder.toString();
+    }
+
+    @Override
+    public String visitWhileStmt(Stmt.While stmt) {
+        return "";
+    }
+
+    @Override
+    public String visitForStmt(Stmt.For stmt) {
+        return "";
+    }
+
+    @Override
+    public String visitBreakStmt(Stmt.Break stmt) {
+        return null;
+    }
+
+    @Override
+    public String visitContinueStmt(Stmt.Continue stmt) {
+        return null;
     }
 
     private String parenthesize(String name, Expr... exprs) {

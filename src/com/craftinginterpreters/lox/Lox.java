@@ -29,8 +29,8 @@ public class Lox {
         byte[] bytes = Files.readAllBytes(Paths.get(path));
         run(new String(bytes, Charset.defaultCharset()));
 
-        if (ErrorReporter.hadError()) System.exit(65);
-        if (ErrorReporter.hadRuntimeError()) System.exit(70);
+        if (ErrorReporter.hadError())        { System.exit(65); }
+        if (ErrorReporter.hadRuntimeError()) { System.exit(70); }
     }
 
     public static void runPrompt() throws IOException {
@@ -52,9 +52,6 @@ public class Lox {
         List<Token> tokens = scanner.scanTokens();
 
         List<Stmt> statements = new Parser(tokens).parse();
-        for (var stmt : statements) {
-            System.out.println(new AstPrinter().printStmt(stmt));
-        }
         if (ErrorReporter.hadError()) { return; }
         interpreter.interpret(statements);
     }

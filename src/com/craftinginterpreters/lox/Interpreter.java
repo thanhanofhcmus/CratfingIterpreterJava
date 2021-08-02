@@ -1,9 +1,13 @@
 package com.craftinginterpreters.lox;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class Interpreter implements Expr.Visitor<Object>,
                                     Stmt.Visitor<Void> {
+    private static class BreakStmtException extends  RuntimeException {}
+    private static class ContinueStmtException extends RuntimeException {}
+
     private Token throwToken;
     private Environment environment = new Environment();
 
@@ -14,11 +18,15 @@ public class Interpreter implements Expr.Visitor<Object>,
             }
         } catch (RuntimeError error) {
             ErrorReporter.error(error);
+        } catch (BreakStmtException error) {
+            ErrorReporter.error(error("No loop to catch break statement"));
+        } catch (ContinueStmtException error) {
+            ErrorReporter.error(error( "No loop to catch continue statement"));
         }
     }
 
     private void execute(Stmt statement) {
-        statement.accept(this);
+        if (null != statement) { statement.accept(this); }
     }
 
     @Override
@@ -45,6 +53,56 @@ public class Interpreter implements Expr.Visitor<Object>,
     public Void visitBlockStmt(Stmt.Block stmt) {
         executeBlock(stmt.stmts, new Environment(this.environment));
         return null;
+    }
+
+    @Override
+    public Void visitIfStmt(Stmt.If stmt) {
+        if (isTruthy(evaluate(stmt.condition))) { execute(stmt.ifBlock); }
+        else if (null != stmt.elseBlock)        { execute(stmt.elseBlock); }
+
+        return null;
+    }
+
+    @Override
+    public Void visitWhileStmt(Stmt.While stmt) {
+
+        try {
+            while (isTruthy(evaluate(stmt.condition))) {
+                try {
+                    execute(stmt.block);
+                } catch (ContinueStmtException ignored) { }
+            }
+        } catch (BreakStmtException error) {
+            return null;
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitForStmt(Stmt.For stmt) {
+        visitBlockStmt(new Stmt.Block(Arrays.asList(
+            stmt.init,
+            new Stmt.While(
+                stmt.condition,
+                new Stmt.Block(Arrays.asList(
+                        stmt.block,
+                        new Stmt.Expression(stmt.increase)
+                ))
+            )
+        )));
+
+        return null;
+    }
+
+    @Override
+    public Void visitBreakStmt(Stmt.Break stmt) {
+        throw new BreakStmtException();
+    }
+
+    @Override
+    public Void visitContinueStmt(Stmt.Continue stmt) {
+        throw new ContinueStmtException();
     }
 
     @Override
@@ -112,6 +170,19 @@ public class Interpreter implements Expr.Visitor<Object>,
         return environment.get(expr.name);
     }
 
+    @Override
+    public Object visitLogicalExpr(Expr.Logical expr) {
+        boolean left = isTruthy(evaluate(expr.left));
+        TokenType type= expr.operator.type;
+
+        if ((TokenType.AND == type && left) ||
+             TokenType.OR == type && !left) {
+            return isTruthy(evaluate(expr.right));
+        } else {
+            return left;
+        }
+    }
+
     private Object evaluate(Expr expr) {
         if   (null == expr) { return null; }
         else                { return expr.accept(this); }
@@ -120,7 +191,7 @@ public class Interpreter implements Expr.Visitor<Object>,
     private boolean isTruthy(Object obj) {
         if      (null == obj)            { return false; }
         else if (obj instanceof Boolean) { return (boolean)obj; }
-        else if (obj instanceof Double)  { return ((double)obj) == 0.0; }
+        else if (obj instanceof Double)  { return ((double)obj) != 0.0; }
         else                             { return true; }
     }
 

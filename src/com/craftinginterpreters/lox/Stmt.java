@@ -9,6 +9,11 @@ abstract class Stmt {
         R visitPrintStmt(Print stmt);
         R visitVariableStmt(Variable stmt);
         R visitBlockStmt(Block stmt);
+        R visitIfStmt(If stmt);
+        R visitWhileStmt(While stmt);
+        R visitForStmt(For stmt);
+        R visitBreakStmt(Break stmt);
+        R visitContinueStmt(Continue stmt);
     }
 
     abstract <R> R accept(Visitor<R> visitor);
@@ -65,5 +70,70 @@ abstract class Stmt {
        <R> R accept(Visitor<R> visitor) {
             return visitor.visitBlockStmt(this);
         }
+   }
+
+   static class If extends Stmt {
+        final Expr condition;
+        final Stmt ifBlock;
+        final Stmt elseBlock;
+
+        If(Expr condition, Stmt ifBlock, Stmt elseBlock) {
+            this.condition = condition;
+            this.ifBlock = ifBlock;
+            this.elseBlock = elseBlock;
+        }
+
+        @Override
+       <R> R accept(Visitor<R> visitor) {
+            return visitor.visitIfStmt(this);
+        }
+   }
+
+   static class While extends Stmt {
+        final Expr condition;
+        final Stmt block;
+
+        While(Expr condition, Stmt block) {
+            this.condition = condition;
+            this.block = block;
+        }
+
+        @Override
+       <R> R accept(Visitor<R> visitor) {
+            return visitor.visitWhileStmt(this);
+        }
+   }
+
+   static class For extends Stmt {
+        final Stmt init;
+        final Expr condition;
+        final Expr increase;
+        final Stmt block;
+
+        For(Stmt init, Expr condition, Expr increase, Stmt block) {
+            this.init = init;
+            this.condition = condition;
+            this.increase = increase;
+            this.block = block;
+        }
+
+        @Override
+       <R> R accept(Visitor<R> visitor) {
+            return visitor.visitForStmt(this);
+        }
+   }
+
+   static class Break extends Stmt {
+        @Override
+       <R> R accept(Visitor<R> visitor) {
+            return visitor.visitBreakStmt(this);
+        }
+   }
+
+   static class Continue extends Stmt {
+       @Override
+       <R> R accept(Visitor<R> visitor) {
+           return visitor.visitContinueStmt(this);
+       }
    }
 }

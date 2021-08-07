@@ -56,6 +56,9 @@ public class AstPrinter implements Expr.Visitor<String>,
     }
 
     @Override
+    public String visitCallExpr(Expr.Call expr) { return null; }
+
+    @Override
     public String visitExprStmt(Stmt.Expression stmt) {
         return parenthesize("ExprStmt", stmt.expr);
     }
@@ -126,6 +129,11 @@ public class AstPrinter implements Expr.Visitor<String>,
         return null;
     }
 
+    @Override
+    public String visitReturnStmt(Stmt.Return stmt) {
+        return null;
+    }
+
     private String parenthesize(String name, Expr... exprs) {
         StringBuilder builder = new StringBuilder();
 
@@ -140,5 +148,10 @@ public class AstPrinter implements Expr.Visitor<String>,
         builder.append(")");
 
         return builder.toString();
+    }
+
+    @Override
+    public String visitFunctionStmt(Stmt.Function function) {
+        return null;
     }
 }

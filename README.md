@@ -1,4 +1,4 @@
-# CratfingIterpreterJava
+# CraftingInterpreterJava
 
 My take on Java part of the lox language when learning to implement an interpreter.
 

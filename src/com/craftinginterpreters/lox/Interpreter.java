@@ -1,15 +1,41 @@
 package com.craftinginterpreters.lox;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Interpreter implements Expr.Visitor<Object>,
                                     Stmt.Visitor<Void> {
-    private static class BreakStmtException extends  RuntimeException {}
-    private static class ContinueStmtException extends RuntimeException {}
+    private static class BreakStmt extends  RuntimeException {}
+    private static class ContinueStmt extends RuntimeException {}
+    public static class ReturnStmt extends RuntimeException {
+        final Object value;
+
+        public ReturnStmt(Object value) {
+            super(null, null, false, false);
+            this.value = value;
+        }
+    }
 
     private Token throwToken;
-    private Environment environment = new Environment();
+    final Environment globals = new Environment();
+    private Environment environment = globals;
+
+    Interpreter() {
+        String name = "clock";
+        globals.define(new Token(TokenType.IDENTIFIER, name, null, -1), new LoxCallable() {
+            @Override
+            public Object call(Interpreter interpreter, List<Object> args) {
+                return (double)System.currentTimeMillis() / 1000.0;
+            }
+
+            @Override
+            public int arity() { return 0; }
+
+            @Override
+            public String toString() { return "<native function>$" + name; }
+        });
+    }
 
     public void interpret(List<Stmt> statements) {
         try {
@@ -18,9 +44,9 @@ public class Interpreter implements Expr.Visitor<Object>,
             }
         } catch (RuntimeError error) {
             ErrorReporter.error(error);
-        } catch (BreakStmtException error) {
+        } catch (BreakStmt error) {
             ErrorReporter.error(error("No loop to catch break statement"));
-        } catch (ContinueStmtException error) {
+        } catch (ContinueStmt error) {
             ErrorReporter.error(error( "No loop to catch continue statement"));
         }
     }
@@ -65,14 +91,13 @@ public class Interpreter implements Expr.Visitor<Object>,
 
     @Override
     public Void visitWhileStmt(Stmt.While stmt) {
-
         try {
             while (isTruthy(evaluate(stmt.condition))) {
                 try {
                     execute(stmt.block);
-                } catch (ContinueStmtException ignored) { }
+                } catch (ContinueStmt ignored) { }
             }
-        } catch (BreakStmtException error) {
+        } catch (BreakStmt error) {
             return null;
         }
 
@@ -97,12 +122,25 @@ public class Interpreter implements Expr.Visitor<Object>,
 
     @Override
     public Void visitBreakStmt(Stmt.Break stmt) {
-        throw new BreakStmtException();
+        throw new BreakStmt();
     }
 
     @Override
     public Void visitContinueStmt(Stmt.Continue stmt) {
-        throw new ContinueStmtException();
+        throw new ContinueStmt();
+    }
+
+    @Override
+    public Void visitFunctionStmt(Stmt.Function stmt) {
+        LoxFunction function = new LoxFunction(stmt);
+        environment.define(stmt.name, function);
+        return null;
+    }
+
+    @Override
+    public Void visitReturnStmt(Stmt.Return stmt) {
+        if (null != stmt.expr) { throw new ReturnStmt(evaluate(stmt.expr)); }
+        else                   { throw new ReturnStmt(null); }
     }
 
     @Override
@@ -183,16 +221,37 @@ public class Interpreter implements Expr.Visitor<Object>,
         }
     }
 
+    @Override
+    public Object visitCallExpr(Expr.Call expr) {
+        Object callee = evaluate(expr.callee);
+        setThrowToken(expr.rightParen);
+
+        List<Object> args = new ArrayList<>();
+        for (Expr arg : expr.arguments) {
+            args.add(evaluate(arg));
+        }
+
+        if (callee instanceof LoxCallable func) {
+            if (func.arity() != args.size()) {
+                throw error(String.format("Expect %d but get %d arguments", func.arity(), args.size()));
+            }
+            return func.call(this, args);
+        } else {
+            throw error("Can only call on functions and classes");
+        }
+    }
+
     private Object evaluate(Expr expr) {
         if   (null == expr) { return null; }
         else                { return expr.accept(this); }
     }
 
     private boolean isTruthy(Object obj) {
-        if      (null == obj)            { return false; }
-        else if (obj instanceof Boolean) { return (boolean)obj; }
-        else if (obj instanceof Double)  { return ((double)obj) != 0.0; }
-        else                             { return true; }
+        if      (null == obj)              { return false; }
+        else if (obj instanceof Boolean b) { return b; }
+        else if (obj instanceof Double d)  { return d != 0.0; }
+        else if (obj instanceof String s)  { return !s.isEmpty(); }
+        else                               { throw error("Unknown Truthy convention"); }
     }
 
     private boolean isEqual(Object left, Object right) {
@@ -208,9 +267,9 @@ public class Interpreter implements Expr.Visitor<Object>,
     }
 
     private Object evaluateMultiply(Object left, Object right) {
-        if (right instanceof Double) {
-            if (left instanceof Double) {
-                return (double)left * (double)right;
+        if (right instanceof Double r) {
+            if (left instanceof Double l) {
+                return l * r;
             } else {
                 String text = (String)left;
                 int rep = (int)(double)right;
@@ -230,8 +289,8 @@ public class Interpreter implements Expr.Visitor<Object>,
     }
 
     private double number(Object obj) {
-        if   (obj instanceof Double) { return (double)obj; }
-        else                         { throw error("Operand must be a number"); }
+        if   (obj instanceof Double d) { return d; }
+        else                           { throw error("Operand must be a number"); }
     }
 
     private String stringify(Object obj) {
@@ -246,7 +305,7 @@ public class Interpreter implements Expr.Visitor<Object>,
         return obj.toString();
     }
 
-    private void executeBlock(List<Stmt> stmts, Environment environment) {
+    public void executeBlock(List<Stmt> stmts, Environment environment) {
         Environment previous = this.environment;
         try {
             this.environment = environment;

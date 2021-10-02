@@ -69,7 +69,7 @@ public class Parser {
 
             return statements;
         } catch (ParseException error) {
-            ErrorReporter.error(peek().line,"Parser", error.getMessage());
+            ErrorReporter.error(peek().line, peek().column, "Parser", error.getMessage());
             return null;
         }
     }

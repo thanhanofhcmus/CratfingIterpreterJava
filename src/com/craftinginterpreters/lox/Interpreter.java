@@ -23,7 +23,7 @@ public class Interpreter implements Expr.Visitor<Object>,
 
     Interpreter() {
         String name = "clock";
-        globals.define(new Token(TokenType.IDENTIFIER, name, null, -1), new LoxCallable() {
+        globals.define(new Token(TokenType.IDENTIFIER, name, null, -1, -1), new LoxCallable() {
             @Override
             public Object call(Interpreter interpreter, List<Object> args) {
                 return (double)System.currentTimeMillis() / 1000.0;
@@ -111,8 +111,8 @@ public class Interpreter implements Expr.Visitor<Object>,
             new Stmt.While(
                 stmt.condition,
                 new Stmt.Block(Arrays.asList(
-                        stmt.block,
-                        new Stmt.Expression(stmt.increase)
+                    stmt.block,
+                    new Stmt.Expression(stmt.increase)
                 ))
             )
         )));
@@ -234,8 +234,9 @@ public class Interpreter implements Expr.Visitor<Object>,
         if (callee instanceof LoxCallable func) {
             if (func.arity() != args.size()) {
                 throw error(String.format("Expect %d but get %d arguments", func.arity(), args.size()));
+            } else {
+                return func.call(this, args);
             }
-            return func.call(this, args);
         } else {
             throw error("Can only call on functions and classes");
         }
@@ -285,7 +286,7 @@ public class Interpreter implements Expr.Visitor<Object>,
         double b = number(right);
 
         if (b == 0) { throw error("Cannot divide by zero"); }
-        return a / b;
+        else        { return a / b; }
     }
 
     private double number(Object obj) {

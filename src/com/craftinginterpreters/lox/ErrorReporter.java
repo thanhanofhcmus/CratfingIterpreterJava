@@ -35,24 +35,21 @@ public class ErrorReporter {
         System.out.print("> ");
     }
 
-    public static void error(int line, String actor, String message) {
-        queue(line, actor, "", message);
+    public static void error(int line, int column, String actor, String message) {
+        queue(line, column, actor, "", message);
     }
 
     public static void error(Token token, String actor, String message) {
-        if (token.type == TokenType.EOF) {
-            queue(token.line, actor, "at the end", message);
-        } else {
-            queue(token.line, actor, "'" + token.lexeme + "'", message);
-        }
+        queue(token.line, token.column, actor,
+                (token.type == TokenType.EOF) ? "at the end" : "'" + token.lexeme + "'", message);
     }
 
     public static void error(RuntimeError error) {
-        runtimeErrorMessage = String.format("[Line %s] [%s]: %s",
-                error.token.line, error.actor, error.getMessage());
+        runtimeErrorMessage = String.format("[%s:%s] [%s]: %s",
+                error.token.line, error.token.column, error.actor, error.getMessage());
     }
 
-    private static void queue(int line, String actor, String where, String message) {
-        errorQueue.add(String.format("[Line %s] [%s] %s: %s", line, actor, where, message));
+    private static void queue(int line, int column, String actor, String where, String message) {
+        errorQueue.add(String.format("[%s:%s] [%s] %s: %s", line, column, actor, where, message));
     }
 }

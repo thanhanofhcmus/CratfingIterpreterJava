@@ -10,6 +10,7 @@ public class Scanner {
     private int start = 0;
     private int current = 0;
     private int line = 1;
+    private int column = 0;
     private boolean isInComment = false;
 
     private static final  Map<String, TokenType> keywords;
@@ -45,13 +46,13 @@ public class Scanner {
         }
 
         // add semicolon for last statement while running prompt
-        if (Lox.isRunPrompt()) {
+        if (!tokens.isEmpty() && Lox.isRunPrompt()) {
             TokenType tt = tokens.get(tokens.size() - 1).type;
             if (tt != RIGHT_BRACE && tt != SEMICOLON) {
-                tokens.add(new Token(SEMICOLON, ";", null, line));
+                tokens.add(new Token(SEMICOLON, ";", null, line, column));
             }
         }
-        tokens.add(new Token(EOF, "", null, line));
+        tokens.add(new Token(EOF, "", null, line, column));
         return tokens;
     }
 
@@ -84,8 +85,11 @@ public class Scanner {
             case '<' -> addToken(match('=') ? LESS_EQUAL : LESS);
             case '>' -> addToken(match('=') ? GREATER_EQUAL : GREATER);
             case '"' -> string();
-            case '\n' -> line++;
-            case ' ', '\t', '\r' -> {}
+            case '\n' -> {
+                line++;
+                column = 0;
+            }
+            case ' ', '\t', '\r' -> { /* DO NOTHING */}
             case '/' -> {
                 if (match('/')) {
                     while (!isAtEnd() && peek() != '\n') {
@@ -108,7 +112,10 @@ public class Scanner {
 
     private boolean isAtEnd() { return current >= source.length(); }
 
-    private char advance() { return source.charAt(current++); }
+    private char advance() {
+        column++;
+        return source.charAt(current++);
+    }
 
     private char peek() {
         if (isAtEnd()) { return '\0'; }
@@ -158,12 +165,13 @@ public class Scanner {
             advance();
         }
 
-        if (isAtEnd()) { error("Unterminated string"); }
-
-        advance();
-
-        String literal = source.substring(start + 1, current - 1);
-        addToken(STRING, literal);
+        if (isAtEnd()) {
+            error("Unterminated string");
+        } else {
+            advance();
+            String literal = source.substring(start + 1, current - 1);
+            addToken(STRING, literal);
+        }
     }
 
     private void identifier() {
@@ -183,10 +191,10 @@ public class Scanner {
 
     private void addToken(TokenType type, Object literal) {
         String text = source.substring(start, current);
-        tokens.add(new Token(type, text, literal, line));
+        tokens.add(new Token(type, text, literal, line, column));
     }
 
     private void error(String message) {
-        ErrorReporter.error(line, "Scanner", message);
+        ErrorReporter.error(line, column, "Scanner", message);
     }
 }

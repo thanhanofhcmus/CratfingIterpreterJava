@@ -2,7 +2,7 @@ package com.craftinginterpreters.lox;
 
 import java.util.List;
 
-abstract class Expr {
+public abstract class Expr {
 
     interface Visitor<R> {
         R visitLiteralExpr(Literal expr);
@@ -18,7 +18,7 @@ abstract class Expr {
 
     abstract <R> R accept(Visitor<R> visitor);
 
-    static class Literal extends Expr {
+    public static class Literal extends Expr {
         final Object value;
 
         Literal(Object value) {
@@ -31,7 +31,7 @@ abstract class Expr {
         }
     }
 
-    static class Assign extends Expr {
+    public static class Assign extends Expr {
         final Token name;
         final Expr value;
 
@@ -46,7 +46,7 @@ abstract class Expr {
         }
     }
 
-    static class Unary extends Expr {
+    public static class Unary extends Expr {
         final Token operator;
         final Expr expr;
 
@@ -61,7 +61,7 @@ abstract class Expr {
         }
     }
 
-    static class Binary extends Expr {
+    public static class Binary extends Expr {
         final Expr left;
         final Token operator;
         final Expr right;
@@ -78,7 +78,7 @@ abstract class Expr {
         }
     }
 
-    static class Ternary extends Expr {
+    public static class Ternary extends Expr {
         final Expr condition;
         final Expr first;
         final Expr second;
@@ -95,7 +95,7 @@ abstract class Expr {
         }
     }
 
-    static class Grouping extends Expr {
+    public static class Grouping extends Expr {
         final Expr expr;
 
         Grouping(Expr expr) {
@@ -108,7 +108,7 @@ abstract class Expr {
         }
     }
 
-    static class Variable extends Expr {
+    public static class Variable extends Expr {
         final Token name;
 
         Variable(Token name) {
@@ -121,7 +121,7 @@ abstract class Expr {
         }
     }
 
-    static class Logical extends Expr {
+    public static class Logical extends Expr {
         final Expr left;
         final Token operator;
         final Expr right;
@@ -138,7 +138,7 @@ abstract class Expr {
         }
     }
 
-    static class Call extends Expr {
+    public static class Call extends Expr {
         final Expr callee;
         final Token rightParen; // for error reporting
         final List<Expr> arguments;

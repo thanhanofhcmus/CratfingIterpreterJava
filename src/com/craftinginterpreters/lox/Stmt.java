@@ -2,7 +2,7 @@ package com.craftinginterpreters.lox;
 
 import java.util.List;
 
-abstract class Stmt {
+public abstract class Stmt {
 
     interface Visitor<R> {
         R visitExprStmt(Expression stmt);
@@ -20,7 +20,7 @@ abstract class Stmt {
 
     abstract <R> R accept(Visitor<R> visitor);
 
-    static class Expression extends Stmt {
+    public static class Expression extends Stmt {
         final Expr expr;
 
         Expression(Expr expr) {
@@ -33,7 +33,7 @@ abstract class Stmt {
        }
     }
 
-    static class Print extends Stmt {
+    public static class Print extends Stmt {
         final Expr expr;
 
         Print(Expr expr) {
@@ -46,7 +46,7 @@ abstract class Stmt {
         }
     }
 
-   static class Variable extends Stmt {
+   public static class Variable extends Stmt {
         final Token name;
         final Expr initializer;
 
@@ -61,7 +61,7 @@ abstract class Stmt {
         }
    }
 
-   static class Block extends Stmt {
+   public static class Block extends Stmt {
         final List<Stmt> stmts;
 
         Block(List<Stmt> stmts) {
@@ -74,7 +74,7 @@ abstract class Stmt {
         }
    }
 
-   static class If extends Stmt {
+   public static class If extends Stmt {
         final Expr condition;
         final Stmt ifBlock;
         final Stmt elseBlock;
@@ -91,7 +91,7 @@ abstract class Stmt {
         }
    }
 
-   static class While extends Stmt {
+   public static class While extends Stmt {
         final Expr condition;
         final Stmt block;
 
@@ -106,7 +106,7 @@ abstract class Stmt {
         }
    }
 
-   static class For extends Stmt {
+   public static class For extends Stmt {
         final Stmt init;
         final Expr condition;
         final Expr increase;
@@ -125,21 +125,21 @@ abstract class Stmt {
         }
    }
 
-   static class Break extends Stmt {
+   public static class Break extends Stmt {
         @Override
        <R> R accept(Visitor<R> visitor) {
             return visitor.visitBreakStmt(this);
         }
    }
 
-   static class Continue extends Stmt {
+   public static class Continue extends Stmt {
        @Override
        <R> R accept(Visitor<R> visitor) {
            return visitor.visitContinueStmt(this);
        }
    }
 
-   static class Function extends Stmt {
+   public static class Function extends Stmt {
         final Token name;
         final List<Token> params;
         final List<Stmt> body;
@@ -155,7 +155,7 @@ abstract class Stmt {
         }
    }
 
-   static class Return extends Stmt {
+   public static class Return extends Stmt {
        final Token keyword; // for error reporting
        final Expr expr;
 

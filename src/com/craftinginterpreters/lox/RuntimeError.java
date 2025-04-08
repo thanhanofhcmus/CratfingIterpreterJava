@@ -1,6 +1,6 @@
 package com.craftinginterpreters.lox;
 
-class RuntimeError extends RuntimeException {
+public class RuntimeError extends RuntimeException {
     final Token token;
     final String actor;
 

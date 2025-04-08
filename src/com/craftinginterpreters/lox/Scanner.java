@@ -149,10 +149,9 @@ public class Scanner {
         }
 
         if (peek() == '.' && isDigit(peekNext())) {
-            advance();
-            while (isDigit(peek())) {
+            do {
                 advance();
-            }
+            } while (isDigit(peek()));
         }
 
         double literal = Double.parseDouble(source.substring(start, current));
